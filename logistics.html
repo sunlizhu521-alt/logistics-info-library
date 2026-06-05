@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>物流大表 - 物流信息库</title>
-    <link rel="stylesheet" href="assets/styles.css?v=0.4.2">
+    <link rel="stylesheet" href="assets/styles.css?v=0.4.3">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script defer src="assets/app.js?v=0.4.2"></script>
+    <script defer src="assets/app.js?v=0.4.3"></script>
   </head>
   <body data-page="logistics">
     <aside class="sidebar">
@@ -58,7 +58,9 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table class="logistics-directory-table" data-directory-table></table>
+          <table class="logistics-directory-table" data-directory-table>
+            <tbody><tr><td class="empty-state">读取文件库中...</td></tr></tbody>
+          </table>
         </div>
       </section>
     </main>

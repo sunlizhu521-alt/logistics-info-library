@@ -97,12 +97,42 @@ async function getStoreRecord(storeName, key) {
   });
 }
 
+async function getAllStoreRecords(storeName) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const request = tx.objectStore(storeName).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+
 async function getAppliedRecord(slotId, legacyId = null) {
   const record = await getStoreRecord(FACT_STORE_NAME, slotId);
   const normalizedRecord = await normalizeLibraryRecord(record);
   if (normalizedRecord?.sheets?.length) return normalizedRecord;
   if (!legacyId) return null;
   return normalizeLibraryRecord(await getStoreRecord(LEGACY_STORE_NAME, legacyId));
+}
+
+async function getLogisticsSourceRecord() {
+  const preferred = await getAppliedRecord(LOGISTICS_SLOT_ID, LEGACY_SOURCE_ID);
+  if (hasBusinessSheets(preferred)) return preferred;
+
+  const factRecords = await getAllStoreRecords(FACT_STORE_NAME);
+  for (const record of factRecords) {
+    const normalized = await normalizeLibraryRecord(record);
+    if (hasBusinessSheets(normalized)) return normalized;
+  }
+
+  const legacyRecords = await getAllStoreRecords(LEGACY_STORE_NAME);
+  for (const record of legacyRecords) {
+    const normalized = await normalizeLibraryRecord(record);
+    if (hasBusinessSheets(normalized)) return normalized;
+  }
+
+  return preferred;
 }
 
 async function normalizeLibraryRecord(record) {
@@ -217,8 +247,12 @@ function normalizeSheetName(value) {
 
 function getBusinessSheetName(sheetName) {
   const key = normalizeSheetName(sheetName);
-  const index = BUSINESS_SHEET_KEYS.indexOf(key);
+  const index = BUSINESS_SHEET_KEYS.findIndex((businessKey) => key === businessKey || key.includes(businessKey));
   return index >= 0 ? BUSINESS_SHEETS[index] : "";
+}
+
+function hasBusinessSheets(record) {
+  return Boolean(record?.sheets?.some((sheet) => getBusinessSheetName(sheet.name)));
 }
 
 function isEmptyRow(row) {
@@ -514,6 +548,16 @@ function renderDirectoryTable() {
   }
 }
 
+function renderDirectoryError(message) {
+  renderTable(document.querySelector("[data-directory-table]"), [
+    { key: "message", label: "状态" }
+  ], [{ message }], "读取失败");
+  const state = document.querySelector("[data-directory-state]");
+  if (state) state.textContent = message;
+  const downloadButton = document.querySelector("[data-directory-download]");
+  if (downloadButton) downloadButton.disabled = true;
+}
+
 function renderDetailTable() {
   const rows = filteredRows.slice(0, 300);
   renderTable(document.querySelector("[data-detail-table]"), [
@@ -627,7 +671,7 @@ function bindEvents() {
 async function refresh() {
   const records = await getAllLegacyFiles();
   const [source, dimensionRecord] = await Promise.all([
-    getAppliedRecord(LOGISTICS_SLOT_ID, LEGACY_SOURCE_ID),
+    getLogisticsSourceRecord(),
     getAppliedRecord(DIMENSION_SLOT_ID)
   ]);
   dimensionMaps = buildDimensionMaps(dimensionRecord);
@@ -645,5 +689,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
   refresh().catch((error) => {
     console.error("Failed to initialize logistics info library.", error);
+    renderDirectoryError(`读取失败：${error.message || error}`);
   });
 });
