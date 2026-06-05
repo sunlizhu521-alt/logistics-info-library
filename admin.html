@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>文件库更新 - 物流信息库</title>
+    <link rel="stylesheet" href="assets/styles.css?v=0.2.0">
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="assets/admin.js?v=0.2.0"></script>
+  </head>
+  <body data-page="admin">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">物</span>
+        <div>
+          <strong>物流信息库</strong>
+          <small>Logistics Finance</small>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="index.html">工作台</a>
+        <a href="logistics.html">物流大表</a>
+        <a class="active" href="admin.html">文件库更新</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">File Library Update</p>
+          <h1>文件库更新</h1>
+          <small class="source-note">上传文件后需要确认应用，物流大表才会引用最新数据。</small>
+        </div>
+      </header>
+
+      <section class="panel admin-library-panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Local Files</p>
+            <h2>文件上传与应用</h2>
+          </div>
+          <button id="clearLibraryCacheButton" class="button danger-button" type="button">一键清除缓存</button>
+        </div>
+        <div class="admin-library-grid" id="adminLibrarySlots"></div>
+      </section>
+
+      <section class="panel admin-reference-panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Reference Status</p>
+            <h2>本地引用状态</h2>
+          </div>
+          <span class="upload-state" id="adminReferenceState">读取中</span>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-reference-table">
+            <thead>
+              <tr>
+                <th>文件库</th>
+                <th>引用表</th>
+                <th>文件名</th>
+                <th>刷新月份</th>
+                <th>更新时间</th>
+                <th>引用时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="adminReferenceRows">
+              <tr><td colspan="7" class="empty-state">读取中</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,9 @@
 const DB_NAME = "logistics-info-library";
+const DB_VERSION = 2;
 const STORE_NAME = "files";
+const FACT_STORE_NAME = "fact-files";
 const SOURCE_ID = "fact:logistics-source";
+const SOURCE_SLOT_ID = "fact-1";
 
 const EXPECTED_SHEETS = ["医疗-发货", "医疗-退货", "医疗-单独发货", "医疗-专线"];
 
@@ -36,11 +39,14 @@ let filteredRows = [];
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(FACT_STORE_NAME)) {
+        db.createObjectStore(FACT_STORE_NAME, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -65,6 +71,34 @@ async function getSourceRecord() {
     const request = tx.objectStore(STORE_NAME).get(SOURCE_ID);
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error);
+  });
+}
+
+async function getAppliedSourceRecord() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([FACT_STORE_NAME, STORE_NAME], "readonly");
+    const factRequest = tx.objectStore(FACT_STORE_NAME).get(SOURCE_SLOT_ID);
+    let legacyRecord = null;
+
+    factRequest.onsuccess = () => {
+      const record = factRequest.result;
+      if (record?.applied && record?.sheets?.length) {
+        resolve(record);
+        return;
+      }
+      const legacyRequest = tx.objectStore(STORE_NAME).get(SOURCE_ID);
+      legacyRequest.onsuccess = () => {
+        legacyRecord = legacyRequest.result || null;
+      };
+      legacyRequest.onerror = () => reject(legacyRequest.error);
+    };
+    factRequest.onerror = () => reject(factRequest.error);
+    tx.oncomplete = () => {
+      if (legacyRecord) resolve(legacyRecord);
+      else resolve(null);
+    };
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -237,7 +271,7 @@ function setText(selector, value) {
 }
 
 function renderSourceMeta(records, source) {
-  const totalFiles = records.length;
+  const totalFiles = source ? 1 : records.length;
   const totalRecords = source?.sheets?.reduce((sum, sheet) => sum + Math.max(sheet.rows.length - 1, 0), 0) || 0;
   setText("[data-total-files]", totalFiles);
   setText("[data-source-status]", source ? "已上传" : "未上传");
@@ -569,7 +603,7 @@ function bindEvents() {
 
 async function refresh() {
   const records = await getAllFiles();
-  const source = await getSourceRecord();
+  const source = await getAppliedSourceRecord();
   normalizedRows = normalizeSource(source);
   renderSourceMeta(records, source);
   renderSheetList(source);
