@@ -213,9 +213,10 @@ function escapeHtml(value) {
 }
 
 function formatNumber(value, digits = 2) {
+  const safeDigits = Number.isInteger(digits) && digits >= 0 && digits <= 20 ? digits : 2;
   return Number(value || 0).toLocaleString("zh-CN", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
+    minimumFractionDigits: safeDigits,
+    maximumFractionDigits: safeDigits
   });
 }
 
