@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>物流大表 - 物流信息库</title>
-    <link rel="stylesheet" href="assets/styles.css?v=0.2.0">
+    <link rel="stylesheet" href="assets/styles.css?v=0.3.0">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script defer src="assets/app.js?v=0.2.0"></script>
+    <script defer src="assets/app.js?v=0.3.0"></script>
   </head>
   <body data-page="logistics">
     <aside class="sidebar">
@@ -27,10 +27,9 @@
       </header>
 
       <section class="toolbar filter-toolbar" data-filter-toolbar>
-        <div class="multi-filter" data-filter="sourceSheet" data-label="全部业务表"></div>
         <div class="multi-filter" data-filter="month" data-label="全部月份"></div>
-        <div class="multi-filter" data-filter="logistics" data-label="全部物流公司"></div>
         <div class="multi-filter" data-filter="category" data-label="全部分类"></div>
+        <div class="multi-filter" data-filter="logistics" data-label="全部物流"></div>
         <div class="multi-filter" data-filter="subject" data-label="全部主体"></div>
         <div class="multi-filter" data-filter="department" data-label="全部部门"></div>
         <div class="multi-filter" data-filter="shop" data-label="全部店铺"></div>
@@ -50,7 +49,7 @@
       <section class="panel">
         <div class="section-title">
           <h2>物流费用汇总</h2>
-          <span>按主体、部门、店铺、产品线、物流公司、分类聚合。</span>
+          <span>分类取 sheet 名，并按部门/店铺维度信息补齐编码。</span>
         </div>
         <div class="table-wrap"><table data-summary-table></table></div>
       </section>

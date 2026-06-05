@@ -15,15 +15,15 @@ const librarySlots = [
   {
     store: FACT_STORE,
     id: "fact-2",
-    library: "事实表",
-    label: "物流附加表 1",
-    description: "用于补充上传其他物流相关 Excel 文件"
+    library: "维度表",
+    label: "Dim-维度信息",
+    description: "用于匹配部门编码和店铺客户编码"
   },
   {
     store: FACT_STORE,
     id: "fact-3",
     library: "事实表",
-    label: "物流附加表 2",
+    label: "物流附加表",
     description: "用于补充上传其他物流相关 Excel 文件"
   }
 ];

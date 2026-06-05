@@ -1,33 +1,49 @@
 const DB_NAME = "logistics-info-library";
 const DB_VERSION = 2;
-const STORE_NAME = "files";
+const LEGACY_STORE_NAME = "files";
 const FACT_STORE_NAME = "fact-files";
-const SOURCE_ID = "fact:logistics-source";
-const SOURCE_SLOT_ID = "fact-1";
+const LEGACY_SOURCE_ID = "fact:logistics-source";
+const LOGISTICS_SLOT_ID = "fact-1";
+const DIMENSION_SLOT_ID = "fact-2";
 
-const EXPECTED_SHEETS = ["医疗-发货", "医疗-退货", "医疗-单独发货", "医疗-专线"];
+const BUSINESS_SHEETS = ["医疗-发货", "医疗-退货", "医疗-单独发货", "医疗-专线"];
 
 const FIELD_ALIASES = {
   month: ["取走数据月份", "取数月份"],
-  logistics: ["物流公司", "物流", "发货物流"],
-  category: ["分类", "商品分类", "产品线", "产品线_1"],
+  logistics: ["物流", "物流公司", "发货物流"],
   subject: ["公司主体", "主体", "主体_1", "付款主体"],
-  department: ["财务回传部门1", "财务回传部门2", "事业部", "阿米巴"],
-  shop: ["财务回传店铺1", "财务回传店铺2", "店铺", "店铺（必填）"],
-  productLine: ["产品线", "产品线_1", "架构", "商品分类"],
+  department: ["财务回传部门1"],
+  shop: ["财务回传店铺1"],
+  productLine: ["产品线", "产品线_1"],
   orderNo: ["有效订单号", "订单号", "订单号/审批单号（财务需求必填）", "OA审批单号", "查询编码"],
   trackingNo: ["有效物流单号", "物流单号", "单号", "返货单号", "出入库单号"],
-  taxAmount: ["实际发货运费（含税）", "含税运费", "运费总计", "运费"],
-  netAmount: ["实际发货运费(不含税）", "不含税运费", "运费不含税金额"],
-  quantity: ["货品数量", "数量", "数量_1"],
-  remark: ["备注", "备注_2", "特殊原因", "其他费用产生原因"]
+  remark: ["备注", "备注_2", "特殊原因", "其他费用产生原因"],
+  quantity: ["货品数量", "数量", "数量_1"]
+};
+
+const AMOUNT_RULES = {
+  "医疗-发货": {
+    tax: ["实际发货运费（含税）"],
+    net: ["实际发货运费(不含税）"]
+  },
+  "医疗-退货": {
+    tax: ["含税运费"],
+    net: ["不含税运费"]
+  },
+  "医疗-单独发货": {
+    tax: ["含税运费"],
+    net: ["不含税运费"]
+  },
+  "医疗-专线": {
+    tax: ["运费总计"],
+    netFromTaxDivisor: 1.09
+  }
 };
 
 const filterState = {
-  sourceSheet: new Set(),
   month: new Set(),
-  logistics: new Set(),
   category: new Set(),
+  logistics: new Set(),
   subject: new Set(),
   department: new Set(),
   shop: new Set(),
@@ -36,120 +52,67 @@ const filterState = {
 
 let normalizedRows = [];
 let filteredRows = [];
+let dimensionMaps = {
+  department: new Map(),
+  shop: new Map()
+};
 
 function openDb() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(FACT_STORE_NAME)) {
-        db.createObjectStore(FACT_STORE_NAME, { keyPath: "id" });
-      }
+      [LEGACY_STORE_NAME, FACT_STORE_NAME].forEach((storeName) => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: "id" });
+        }
+      });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function getAllFiles() {
+async function getAllLegacyFiles() {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const request = tx.objectStore(STORE_NAME).getAll();
+    const tx = db.transaction(LEGACY_STORE_NAME, "readonly");
+    const request = tx.objectStore(LEGACY_STORE_NAME).getAll();
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
+    tx.oncomplete = () => db.close();
   });
 }
 
-async function getSourceRecord() {
+async function getStoreRecord(storeName, key) {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const request = tx.objectStore(STORE_NAME).get(SOURCE_ID);
+    const tx = db.transaction(storeName, "readonly");
+    const request = tx.objectStore(storeName).get(key);
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error);
+    tx.oncomplete = () => db.close();
   });
 }
 
-async function getAppliedSourceRecord() {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([FACT_STORE_NAME, STORE_NAME], "readonly");
-    const factRequest = tx.objectStore(FACT_STORE_NAME).get(SOURCE_SLOT_ID);
-    let legacyRecord = null;
-
-    factRequest.onsuccess = () => {
-      const record = factRequest.result;
-      if (record?.applied && record?.sheets?.length) {
-        resolve(record);
-        return;
-      }
-      const legacyRequest = tx.objectStore(STORE_NAME).get(SOURCE_ID);
-      legacyRequest.onsuccess = () => {
-        legacyRecord = legacyRequest.result || null;
-      };
-      legacyRequest.onerror = () => reject(legacyRequest.error);
-    };
-    factRequest.onerror = () => reject(factRequest.error);
-    tx.oncomplete = () => {
-      if (legacyRecord) resolve(legacyRecord);
-      else resolve(null);
-    };
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function saveSourceRecord(record) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).put(record);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+async function getAppliedRecord(slotId, legacyId = null) {
+  const record = await getStoreRecord(FACT_STORE_NAME, slotId);
+  if (record?.applied && record?.sheets?.length) return record;
+  if (!legacyId) return null;
+  return getStoreRecord(LEGACY_STORE_NAME, legacyId);
 }
 
 async function clearFiles() {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-function readWorkbook(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        if (!window.XLSX) {
-          throw new Error("XLSX 解析库未加载");
-        }
-
-        const workbook = XLSX.read(reader.result, { type: "array", cellDates: true });
-        const sheets = workbook.SheetNames.map((sheetName) => {
-          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-            header: 1,
-            defval: "",
-            raw: false
-          });
-          return {
-            name: sheetName,
-            rows
-          };
-        });
-        resolve(sheets);
-      } catch (error) {
-        reject(error);
-      }
+    const tx = db.transaction([LEGACY_STORE_NAME, FACT_STORE_NAME], "readwrite");
+    tx.objectStore(LEGACY_STORE_NAME).clear();
+    tx.objectStore(FACT_STORE_NAME).clear();
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
     };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -187,20 +150,18 @@ function formatDateTime(value) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
-function formatSize(size) {
-  if (size > 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
-  if (size > 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${size} B`;
+function normalizeKey(value) {
+  return String(value ?? "").trim();
 }
 
 function isEmptyRow(row) {
-  return row.every((value) => String(value ?? "").trim() === "");
+  return row.every((value) => normalizeKey(value) === "");
 }
 
 function makeUniqueHeaders(headers) {
   const seen = new Map();
   return headers.map((header, index) => {
-    const base = String(header || `Column${index + 1}`).trim();
+    const base = normalizeKey(header) || `Column${index + 1}`;
     const count = seen.get(base) || 0;
     seen.set(base, count + 1);
     return count === 0 ? base : `${base}_${count + 1}`;
@@ -226,42 +187,74 @@ function rowsToObjects(rows) {
 function firstValue(row, aliases) {
   for (const alias of aliases) {
     const value = row[alias];
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return String(value).trim();
-    }
+    if (normalizeKey(value) !== "") return normalizeKey(value);
   }
   return "";
 }
 
-function normalizeSource(record) {
-  if (!record?.sheets) return [];
-  return record.sheets.flatMap((sheet) => {
-    const parsed = rowsToObjects(sheet.rows);
-    return parsed.rows.map((row, index) => {
-      const normalized = {
-        id: `${sheet.name}:${index}`,
-        sourceSheet: sheet.name,
-        month: firstValue(row, FIELD_ALIASES.month),
-        logistics: firstValue(row, FIELD_ALIASES.logistics),
-        category: firstValue(row, FIELD_ALIASES.category),
-        subject: firstValue(row, FIELD_ALIASES.subject),
-        department: firstValue(row, FIELD_ALIASES.department),
-        shop: firstValue(row, FIELD_ALIASES.shop),
-        productLine: firstValue(row, FIELD_ALIASES.productLine),
-        orderNo: firstValue(row, FIELD_ALIASES.orderNo),
-        trackingNo: firstValue(row, FIELD_ALIASES.trackingNo),
-        remark: firstValue(row, FIELD_ALIASES.remark),
-        taxAmount: parseAmount(firstValue(row, FIELD_ALIASES.taxAmount)),
-        netAmount: parseAmount(firstValue(row, FIELD_ALIASES.netAmount)),
-        quantity: parseAmount(firstValue(row, FIELD_ALIASES.quantity)),
-        raw: row
-      };
-      if (!normalized.netAmount && normalized.taxAmount) {
-        normalized.netAmount = normalized.taxAmount / 1.06;
-      }
-      return normalized;
-    });
+function getSheetAmount(row, sheetName, kind) {
+  const rule = AMOUNT_RULES[sheetName];
+  if (!rule) return 0;
+  if (kind === "net" && rule.netFromTaxDivisor) {
+    return getSheetAmount(row, sheetName, "tax") / rule.netFromTaxDivisor;
+  }
+  const aliases = kind === "tax" ? rule.tax : rule.net;
+  return parseAmount(firstValue(row, aliases || []));
+}
+
+function buildCodeMap(record, sheetKeyword) {
+  const map = new Map();
+  const sheet = record?.sheets?.find((item) => item.name.includes(sheetKeyword));
+  if (!sheet?.rows?.length) return map;
+
+  sheet.rows.forEach((row) => {
+    const code = normalizeKey(row[0]);
+    const name = normalizeKey(row[1]);
+    if (name && code && !map.has(name)) map.set(name, code);
   });
+  return map;
+}
+
+function buildDimensionMaps(record) {
+  return {
+    department: buildCodeMap(record, "部门维度信息"),
+    shop: buildCodeMap(record, "店铺维度信息")
+  };
+}
+
+function normalizeSource(record, maps) {
+  if (!record?.sheets) return [];
+  return record.sheets
+    .filter((sheet) => BUSINESS_SHEETS.includes(sheet.name))
+    .flatMap((sheet) => {
+      const parsed = rowsToObjects(sheet.rows);
+      return parsed.rows.map((row, index) => {
+        const department = firstValue(row, FIELD_ALIASES.department);
+        const shop = firstValue(row, FIELD_ALIASES.shop);
+        const taxAmount = getSheetAmount(row, sheet.name, "tax");
+        const netAmount = getSheetAmount(row, sheet.name, "net");
+        return {
+          id: `${sheet.name}:${index}`,
+          sourceSheet: sheet.name,
+          month: firstValue(row, FIELD_ALIASES.month),
+          category: sheet.name,
+          logistics: firstValue(row, FIELD_ALIASES.logistics),
+          subject: firstValue(row, FIELD_ALIASES.subject),
+          department,
+          departmentCode: maps.department.get(department) || "",
+          shop,
+          shopCode: maps.shop.get(shop) || "",
+          productLine: firstValue(row, FIELD_ALIASES.productLine),
+          orderNo: firstValue(row, FIELD_ALIASES.orderNo),
+          trackingNo: firstValue(row, FIELD_ALIASES.trackingNo),
+          remark: firstValue(row, FIELD_ALIASES.remark),
+          quantity: parseAmount(firstValue(row, FIELD_ALIASES.quantity)),
+          taxAmount,
+          netAmount,
+          raw: row
+        };
+      });
+    });
 }
 
 function setText(selector, value) {
@@ -272,52 +265,15 @@ function setText(selector, value) {
 
 function renderSourceMeta(records, source) {
   const totalFiles = source ? 1 : records.length;
-  const totalRecords = source?.sheets?.reduce((sum, sheet) => sum + Math.max(sheet.rows.length - 1, 0), 0) || 0;
+  const totalRecords = source?.sheets?.reduce((sum, sheet) => {
+    if (!BUSINESS_SHEETS.includes(sheet.name)) return sum;
+    return sum + Math.max(sheet.rows.length - 1, 0);
+  }, 0) || 0;
   setText("[data-total-files]", totalFiles);
   setText("[data-source-status]", source ? "已上传" : "未上传");
   setText("[data-total-records]", formatInteger(totalRecords));
   setText("[data-sheet-count]", source?.sheets?.length || 0);
   setText("[data-saved-time]", formatDateTime(source?.savedAt));
-}
-
-function renderSheetList(source) {
-  const container = document.querySelector("[data-sheet-list]");
-  if (!container) return;
-
-  if (!source?.sheets?.length) {
-    container.innerHTML = `<div class="file-item"><div><strong>暂无文件</strong><small>上传物流原表后显示 sheet 清单。</small></div></div>`;
-    return;
-  }
-
-  container.innerHTML = source.sheets.map((sheet) => {
-    const expected = EXPECTED_SHEETS.includes(sheet.name);
-    return `
-      <div class="file-item">
-        <div>
-          <strong>${escapeHtml(sheet.name)}</strong>
-          <small>${escapeHtml(source.name)} · ${formatSize(source.size)} · ${formatDateTime(source.savedAt)}</small>
-        </div>
-        <span class="badge">${expected ? "业务表" : "附加表"} · ${formatInteger(Math.max(sheet.rows.length - 1, 0))} 行</span>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderPreview(source) {
-  const table = document.querySelector("[data-preview-table]");
-  if (!table) return;
-
-  const sheet = source?.sheets?.find((item) => EXPECTED_SHEETS.includes(item.name)) || source?.sheets?.[0];
-  if (!sheet?.rows?.length) {
-    table.innerHTML = `<tbody><tr><td class="empty-state">暂无预览数据</td></tr></tbody>`;
-    return;
-  }
-
-  table.innerHTML = sheet.rows.slice(0, 20).map((row, rowIndex) => {
-    const tag = rowIndex === 0 ? "th" : "td";
-    const cells = row.map((cell) => `<${tag}>${escapeHtml(cell)}</${tag}>`).join("");
-    return `<tr>${cells}</tr>`;
-  }).join("");
 }
 
 function uniqueOptions(rows, key) {
@@ -329,7 +285,7 @@ function uniqueOptions(rows, key) {
 function labelForFilter(container, selectedCount) {
   const key = container.dataset.filter;
   const allLabel = container.dataset.label || "全部";
-  const selected = Array.from(filterState[key]);
+  const selected = Array.from(filterState[key] || []);
   if (!selected.length) return allLabel;
   if (selected.length === 1) return selected[0];
   if (selected.length === 2) return selected.join("、");
@@ -340,7 +296,7 @@ function renderFilters() {
   document.querySelectorAll(".multi-filter").forEach((container) => {
     const key = container.dataset.filter;
     const values = uniqueOptions(normalizedRows, key);
-    const selected = filterState[key];
+    const selected = filterState[key] || new Set();
     const allChecked = selected.size === 0 ? "checked" : "";
     container.innerHTML = `
       <button class="multi-filter-button" type="button">${escapeHtml(labelForFilter(container, selected.size))}</button>
@@ -370,6 +326,9 @@ function applyFilters() {
       row.orderNo,
       row.trackingNo,
       row.shop,
+      row.shopCode,
+      row.department,
+      row.departmentCode,
       row.logistics,
       row.category,
       row.remark,
@@ -393,31 +352,33 @@ function groupSummary(rows) {
   const map = new Map();
   rows.forEach((row) => {
     const parts = [
+      row.category,
+      row.logistics,
       row.subject,
       row.department,
+      row.departmentCode,
       row.shop,
-      row.productLine,
-      row.logistics,
-      row.category
+      row.shopCode,
+      row.productLine
     ].map((value) => value || "未填");
     const key = parts.join("\u0001");
     if (!map.has(key)) {
       map.set(key, {
-        subject: parts[0],
-        department: parts[1],
-        shop: parts[2],
-        productLine: parts[3],
-        logistics: parts[4],
-        category: parts[5],
+        category: parts[0],
+        logistics: parts[1],
+        subject: parts[2],
+        department: parts[3],
+        departmentCode: parts[4],
+        shop: parts[5],
+        shopCode: parts[6],
+        productLine: parts[7],
         records: 0,
-        quantity: 0,
         taxAmount: 0,
         netAmount: 0
       });
     }
     const item = map.get(key);
     item.records += 1;
-    item.quantity += row.quantity;
     item.taxAmount += row.taxAmount;
     item.netAmount += row.netAmount;
   });
@@ -444,34 +405,35 @@ function renderTable(table, headers, rows, emptyText) {
 }
 
 function renderSummaryTable() {
-  const rows = groupSummary(filteredRows).slice(0, 300);
+  const rows = groupSummary(filteredRows).slice(0, 500);
   renderTable(document.querySelector("[data-summary-table]"), [
+    { key: "category", label: "分类" },
+    { key: "logistics", label: "物流" },
     { key: "subject", label: "主体" },
     { key: "department", label: "财务回传部门" },
+    { key: "departmentCode", label: "部门编码" },
     { key: "shop", label: "财务回传店铺" },
+    { key: "shopCode", label: "店铺客户编码" },
     { key: "productLine", label: "产品线" },
-    { key: "logistics", label: "物流公司" },
-    { key: "category", label: "分类" },
-    { key: "records", label: "记录数", number: true, format: formatInteger },
-    { key: "quantity", label: "数量", number: true, format: formatNumber },
-    { key: "taxAmount", label: "含税运费", number: true, format: formatNumber },
-    { key: "netAmount", label: "不含税运费", number: true, format: formatNumber }
+    { key: "taxAmount", label: "运费合计(含税)", number: true, format: formatNumber },
+    { key: "netAmount", label: "运费合计不含税", number: true, format: formatNumber }
   ], rows, "暂无可汇总数据");
 }
 
 function renderDetailTable() {
   const rows = filteredRows.slice(0, 300);
   renderTable(document.querySelector("[data-detail-table]"), [
-    { key: "sourceSheet", label: "业务表" },
     { key: "month", label: "月份" },
+    { key: "category", label: "分类" },
+    { key: "logistics", label: "物流" },
+    { key: "subject", label: "主体" },
+    { key: "department", label: "财务回传部门" },
+    { key: "departmentCode", label: "部门编码" },
+    { key: "shop", label: "财务回传店铺" },
+    { key: "shopCode", label: "店铺客户编码" },
+    { key: "productLine", label: "产品线" },
     { key: "orderNo", label: "订单号/审批单号" },
     { key: "trackingNo", label: "物流单号" },
-    { key: "logistics", label: "物流公司" },
-    { key: "category", label: "分类" },
-    { key: "subject", label: "主体" },
-    { key: "department", label: "部门" },
-    { key: "shop", label: "店铺" },
-    { key: "productLine", label: "产品线" },
     { key: "taxAmount", label: "含税运费", number: true, format: formatNumber },
     { key: "netAmount", label: "不含税运费", number: true, format: formatNumber },
     { key: "remark", label: "备注" }
@@ -486,26 +448,6 @@ function rerenderDashboard() {
   renderDetailTable();
 }
 
-async function handleUpload(event) {
-  const input = event.currentTarget;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  const sheets = await readWorkbook(file);
-  await saveSourceRecord({
-    id: SOURCE_ID,
-    kind: "fact",
-    slot: "物流原表",
-    name: file.name,
-    size: file.size,
-    sheets,
-    savedAt: new Date().toISOString()
-  });
-
-  input.value = "";
-  await refresh();
-}
-
 function exportRows() {
   if (!window.XLSX) {
     alert("XLSX 解析库未加载，无法导出。");
@@ -516,27 +458,23 @@ function exportRows() {
     return;
   }
 
-  const rows = filteredRows.map((row) => ({
-    业务表: row.sourceSheet,
-    月份: row.month,
-    订单号或审批单号: row.orderNo,
-    物流单号: row.trackingNo,
-    物流公司: row.logistics,
+  const rows = groupSummary(filteredRows).map((row) => ({
     分类: row.category,
+    物流: row.logistics,
     主体: row.subject,
     财务回传部门: row.department,
+    部门编码: row.departmentCode,
     财务回传店铺: row.shop,
+    店铺客户编码: row.shopCode,
     产品线: row.productLine,
-    数量: row.quantity,
-    含税运费: row.taxAmount,
-    不含税运费: row.netAmount,
-    备注: row.remark
+    "运费合计(含税)": row.taxAmount,
+    运费合计不含税: row.netAmount
   }));
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "物流明细");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "物流汇总");
   const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  XLSX.writeFile(workbook, `物流明细_${stamp}.xlsx`);
+  XLSX.writeFile(workbook, `物流汇总_${stamp}.xlsx`);
 }
 
 function bindFilterEvents() {
@@ -560,6 +498,7 @@ function bindFilterEvents() {
     if (!input) return;
     const filter = input.closest(".multi-filter");
     const key = filter.dataset.filter;
+    if (!filterState[key]) return;
     if (input.dataset.all !== undefined) {
       filterState[key].clear();
     } else if (input.checked) {
@@ -582,32 +521,24 @@ function bindFilterEvents() {
 }
 
 function bindEvents() {
-  document.querySelectorAll("[data-upload-source]").forEach((input) => {
-    input.addEventListener("change", (event) => {
-      handleUpload(event).catch((error) => {
-        console.error("Upload failed.", error);
-        alert(`上传失败：${error.message}`);
-      });
-    });
-  });
-
   document.querySelectorAll("[data-clear-local]").forEach((button) => {
     button.addEventListener("click", async () => {
       await clearFiles();
       await refresh();
     });
   });
-
   bindFilterEvents();
 }
 
 async function refresh() {
-  const records = await getAllFiles();
-  const source = await getAppliedSourceRecord();
-  normalizedRows = normalizeSource(source);
+  const records = await getAllLegacyFiles();
+  const [source, dimensionRecord] = await Promise.all([
+    getAppliedRecord(LOGISTICS_SLOT_ID, LEGACY_SOURCE_ID),
+    getAppliedRecord(DIMENSION_SLOT_ID)
+  ]);
+  dimensionMaps = buildDimensionMaps(dimensionRecord);
+  normalizedRows = normalizeSource(source, dimensionMaps);
   renderSourceMeta(records, source);
-  renderSheetList(source);
-  renderPreview(source);
   rerenderDashboard();
 }
 
