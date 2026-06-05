@@ -7,6 +7,7 @@ const LOGISTICS_SLOT_ID = "fact-1";
 const DIMENSION_SLOT_ID = "fact-2";
 
 const BUSINESS_SHEETS = ["医疗-发货", "医疗-退货", "医疗-单独发货", "医疗-专线"];
+const BUSINESS_SHEET_KEYS = BUSINESS_SHEETS.map(normalizeSheetName);
 
 const FIELD_ALIASES = {
   month: ["取走数据月份", "取数月份"],
@@ -52,6 +53,7 @@ const filterState = {
 
 let normalizedRows = [];
 let filteredRows = [];
+let sourceStatusText = "等待数据";
 let dimensionMaps = {
   department: new Map(),
   shop: new Map()
@@ -97,13 +99,13 @@ async function getStoreRecord(storeName, key) {
 
 async function getAppliedRecord(slotId, legacyId = null) {
   const record = await getStoreRecord(FACT_STORE_NAME, slotId);
-  const normalizedRecord = normalizeLibraryRecord(record);
+  const normalizedRecord = await normalizeLibraryRecord(record);
   if (normalizedRecord?.sheets?.length) return normalizedRecord;
   if (!legacyId) return null;
-  return getStoreRecord(LEGACY_STORE_NAME, legacyId);
+  return normalizeLibraryRecord(await getStoreRecord(LEGACY_STORE_NAME, legacyId));
 }
 
-function normalizeLibraryRecord(record) {
+async function normalizeLibraryRecord(record) {
   if (!record) return null;
   if (record.sheets?.length) return record;
   if (record.pendingSheets?.length) {
@@ -115,7 +117,46 @@ function normalizeLibraryRecord(record) {
       sheets: record.pendingSheets
     };
   }
+  const workbookFile = record.file || record.pendingFile;
+  if (workbookFile && typeof FileReader !== "undefined") {
+    const sheets = await readWorkbook(workbookFile);
+    return {
+      ...record,
+      name: record.name || record.pendingName || workbookFile.name,
+      size: record.size || record.pendingSize || workbookFile.size,
+      savedAt: record.savedAt || record.pendingSavedAt,
+      sheets
+    };
+  }
   return record;
+}
+
+function readWorkbook(file) {
+  return new Promise((resolve, reject) => {
+    if (!window.XLSX) {
+      reject(new Error("XLSX 解析库未加载"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const workbook = XLSX.read(reader.result, { type: "array", cellDates: true });
+        const sheets = workbook.SheetNames.map((sheetName) => ({
+          name: sheetName,
+          rows: XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+            header: 1,
+            defval: "",
+            raw: false
+          })
+        }));
+        resolve(sheets);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 async function clearFiles() {
@@ -168,6 +209,16 @@ function formatDateTime(value) {
 
 function normalizeKey(value) {
   return String(value ?? "").trim();
+}
+
+function normalizeSheetName(value) {
+  return normalizeKey(value).replace(/\s+/g, "");
+}
+
+function getBusinessSheetName(sheetName) {
+  const key = normalizeSheetName(sheetName);
+  const index = BUSINESS_SHEET_KEYS.indexOf(key);
+  return index >= 0 ? BUSINESS_SHEETS[index] : "";
 }
 
 function isEmptyRow(row) {
@@ -241,19 +292,20 @@ function buildDimensionMaps(record) {
 function normalizeSource(record, maps) {
   if (!record?.sheets) return [];
   return record.sheets
-    .filter((sheet) => BUSINESS_SHEETS.includes(sheet.name))
+    .map((sheet) => ({ ...sheet, businessName: getBusinessSheetName(sheet.name) }))
+    .filter((sheet) => sheet.businessName)
     .flatMap((sheet) => {
       const parsed = rowsToObjects(sheet.rows);
       return parsed.rows.map((row, index) => {
         const department = firstValue(row, FIELD_ALIASES.department);
         const shop = firstValue(row, FIELD_ALIASES.shop);
-        const taxAmount = getSheetAmount(row, sheet.name, "tax");
-        const netAmount = getSheetAmount(row, sheet.name, "net");
+        const taxAmount = getSheetAmount(row, sheet.businessName, "tax");
+        const netAmount = getSheetAmount(row, sheet.businessName, "net");
         return {
           id: `${sheet.name}:${index}`,
           sourceSheet: sheet.name,
           month: firstValue(row, FIELD_ALIASES.month),
-          category: sheet.name,
+          category: sheet.businessName,
           logistics: firstValue(row, FIELD_ALIASES.logistics),
           subject: firstValue(row, FIELD_ALIASES.subject),
           department,
@@ -282,7 +334,7 @@ function setText(selector, value) {
 function renderSourceMeta(records, source) {
   const totalFiles = source ? 1 : records.length;
   const totalRecords = source?.sheets?.reduce((sum, sheet) => {
-    if (!BUSINESS_SHEETS.includes(sheet.name)) return sum;
+    if (!getBusinessSheetName(sheet.name)) return sum;
     return sum + Math.max(sheet.rows.length - 1, 0);
   }, 0) || 0;
   setText("[data-total-files]", totalFiles);
@@ -450,11 +502,11 @@ function renderDirectoryTable() {
     { key: "productLine", label: "产品线" },
     { key: "taxAmount", label: "运费合计(含税)", number: true, format: formatNumber },
     { key: "netAmount", label: "运费合计不含税", number: true, format: formatNumber }
-  ], visibleRows, "暂无检索结果");
+  ], visibleRows, sourceStatusText);
 
   const state = document.querySelector("[data-directory-state]");
   if (state) {
-    state.textContent = rows.length ? `当前 ${formatInteger(rows.length)} 条` : "等待数据";
+    state.textContent = rows.length ? `当前 ${formatInteger(rows.length)} 条` : sourceStatusText;
   }
   const downloadButton = document.querySelector("[data-directory-download]");
   if (downloadButton) {
@@ -580,6 +632,11 @@ async function refresh() {
   ]);
   dimensionMaps = buildDimensionMaps(dimensionRecord);
   normalizedRows = normalizeSource(source, dimensionMaps);
+  sourceStatusText = source
+    ? normalizedRows.length
+      ? "暂无检索结果"
+      : "未识别到医疗-发货、医疗-退货、医疗-单独发货、医疗-专线数据"
+    : "请先在文件库更新上传物流原表";
   renderSourceMeta(records, source);
   rerenderDashboard();
 }
