@@ -420,6 +420,32 @@ function renderSummaryTable() {
   ], rows, "暂无可汇总数据");
 }
 
+function renderDirectoryTable() {
+  const rows = groupSummary(filteredRows);
+  const visibleRows = rows.slice(0, 500);
+  renderTable(document.querySelector("[data-directory-table]"), [
+    { key: "category", label: "分类" },
+    { key: "logistics", label: "物流" },
+    { key: "subject", label: "主体" },
+    { key: "department", label: "财务回传部门" },
+    { key: "departmentCode", label: "部门编码" },
+    { key: "shop", label: "财务回传店铺" },
+    { key: "shopCode", label: "店铺客户编码" },
+    { key: "productLine", label: "产品线" },
+    { key: "taxAmount", label: "运费合计(含税)", number: true, format: formatNumber },
+    { key: "netAmount", label: "运费合计不含税", number: true, format: formatNumber }
+  ], visibleRows, "暂无检索结果");
+
+  const state = document.querySelector("[data-directory-state]");
+  if (state) {
+    state.textContent = rows.length ? `当前 ${formatInteger(rows.length)} 条` : "等待数据";
+  }
+  const downloadButton = document.querySelector("[data-directory-download]");
+  if (downloadButton) {
+    downloadButton.disabled = rows.length === 0;
+  }
+}
+
 function renderDetailTable() {
   const rows = filteredRows.slice(0, 300);
   renderTable(document.querySelector("[data-detail-table]"), [
@@ -444,6 +470,7 @@ function rerenderDashboard() {
   applyFilters();
   renderFilters();
   renderKpis();
+  renderDirectoryTable();
   renderSummaryTable();
   renderDetailTable();
 }
@@ -518,6 +545,7 @@ function bindFilterEvents() {
     rerenderDashboard();
   });
   document.querySelector("[data-export]")?.addEventListener("click", exportRows);
+  document.querySelector("[data-directory-download]")?.addEventListener("click", exportRows);
 }
 
 function bindEvents() {

@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>物流大表 - 物流信息库</title>
-    <link rel="stylesheet" href="assets/styles.css?v=0.3.0">
+    <link rel="stylesheet" href="assets/styles.css?v=0.4.0">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script defer src="assets/app.js?v=0.3.0"></script>
+    <script defer src="assets/app.js?v=0.4.0"></script>
   </head>
   <body data-page="logistics">
     <aside class="sidebar">
@@ -44,6 +44,22 @@
         <article class="metric"><span>含税运费</span><strong data-kpi="taxAmount">0</strong></article>
         <article class="metric"><span>不含税运费</span><strong data-kpi="netAmount">0</strong></article>
         <article class="metric"><span>物流公司数</span><strong data-kpi="logisticsCount">0</strong></article>
+      </section>
+
+      <section class="panel table-panel logistics-directory-panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Smart Directory</p>
+            <h2>物流费用检索</h2>
+          </div>
+          <div class="table-actions">
+            <button class="button" type="button" data-directory-download disabled>下载当前结果</button>
+            <span class="upload-state" data-directory-state>等待数据</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="logistics-directory-table" data-directory-table></table>
+        </div>
       </section>
 
       <section class="panel">
