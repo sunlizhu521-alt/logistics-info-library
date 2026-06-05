@@ -3,6 +3,8 @@ const DB_VERSION = 2;
 const FACT_STORE = "fact-files";
 const SOURCE_SLOT_ID = "fact-1";
 const LOCAL_LIBRARY_SOURCE = "local-upload";
+const LOGISTICS_SHEET_NAMES = ["医疗-发货", "医疗-退货", "医疗-单独发货", "医疗-专线"];
+const DIMENSION_SHEET_KEYWORDS = ["部门维度信息", "店铺维度信息"];
 
 const librarySlots = [
   {
@@ -10,14 +12,24 @@ const librarySlots = [
     id: SOURCE_SLOT_ID,
     library: "事实表",
     label: "物流原表",
-    description: "包含医疗-发货、医疗-退货、医疗-单独发货、医疗-专线"
+    description: "包含医疗-发货、医疗-退货、医疗-单独发货、医疗-专线",
+    sheetRule: {
+      mode: "any",
+      names: LOGISTICS_SHEET_NAMES,
+      message: "物流原表需要包含：医疗-发货、医疗-退货、医疗-单独发货、医疗-专线 中至少一个 sheet"
+    }
   },
   {
     store: FACT_STORE,
     id: "fact-2",
     library: "维度表",
     label: "Dim-维度信息",
-    description: "用于匹配部门编码和店铺客户编码"
+    description: "用于匹配部门编码和店铺客户编码",
+    sheetRule: {
+      mode: "any",
+      keywords: DIMENSION_SHEET_KEYWORDS,
+      message: "Dim-维度信息需要包含部门维度信息或店铺维度信息 sheet"
+    }
   },
   {
     store: FACT_STORE,
@@ -151,7 +163,16 @@ async function saveFile(slotId, file) {
   const slot = getSlot(slotId);
   const savedAt = new Date().toISOString();
   adminEls.referenceState.textContent = "读取文件中";
-  const sheets = await readWorkbook(file);
+  let sheets = [];
+  try {
+    sheets = await readWorkbook(file);
+    validateSlotSheets(slot, sheets);
+  } catch (error) {
+    console.warn("save file failed", error);
+    adminEls.referenceState.textContent = "上传失败";
+    window.alert(error.message || "读取失败，请确认文件格式和 sheet 是否正确");
+    return;
+  }
   const existing = adminState.records.get(slotId) || { id: slotId };
   const record = {
     ...existing,
@@ -162,6 +183,7 @@ async function saveFile(slotId, file) {
     pendingRefreshMonth: getRefreshMonth(file.name, savedAt),
     pendingSavedAt: savedAt,
     pendingLibrarySource: LOCAL_LIBRARY_SOURCE,
+    pendingMatchedSheets: getMatchedSheetNames(slot, sheets),
     pendingSheets: sheets
   };
   const db = await openAppDb();
@@ -309,8 +331,47 @@ function clearPendingFields(record) {
   delete nextRecord.pendingRefreshMonth;
   delete nextRecord.pendingSavedAt;
   delete nextRecord.pendingLibrarySource;
+  delete nextRecord.pendingMatchedSheets;
   delete nextRecord.pendingSheets;
   return nextRecord;
+}
+
+function validateSlotSheets(slot, sheets) {
+  const rule = slot?.sheetRule;
+  if (!rule) return true;
+
+  const matchedSheets = getMatchedSheetNames(slot, sheets);
+  const isValid = rule.mode === "all"
+    ? getExpectedSheetKeys(rule).every((key) => matchedSheets.some((name) => sheetMatchesRule(name, { ...rule, names: [key], keywords: [key] })))
+    : matchedSheets.length > 0;
+
+  if (!isValid) {
+    throw new Error(rule.message || "上传文件未包含当前槽位需要的 sheet");
+  }
+  return true;
+}
+
+function getMatchedSheetNames(slot, sheets) {
+  const rule = slot?.sheetRule;
+  if (!rule) return sheets.map((sheet) => sheet.name);
+  return sheets
+    .map((sheet) => sheet.name)
+    .filter((sheetName) => sheetMatchesRule(sheetName, rule));
+}
+
+function sheetMatchesRule(sheetName, rule) {
+  const normalized = normalizeSheetName(sheetName);
+  const nameMatched = (rule.names || []).some((name) => normalized === normalizeSheetName(name));
+  const keywordMatched = (rule.keywords || []).some((keyword) => normalized.includes(normalizeSheetName(keyword)));
+  return nameMatched || keywordMatched;
+}
+
+function getExpectedSheetKeys(rule) {
+  return [...(rule.names || []), ...(rule.keywords || [])];
+}
+
+function normalizeSheetName(value) {
+  return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
 function getRefreshMonth(fileName, fallbackDate) {
