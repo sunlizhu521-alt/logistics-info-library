@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>清除缓存 - 物流信息库</title>
+    <link rel="stylesheet" href="assets/styles.css?v=0.5.0">
+    <script defer src="assets/clear-cache.js?v=0.1.0"></script>
+  </head>
+  <body data-page="clear-cache">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">物</span>
+        <div>
+          <strong>物流信息库</strong>
+          <small>Logistics Finance</small>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="logistics.html">物流大表</a>
+        <a href="admin.html">文件库更新</a>
+        <a class="active" href="clear-cache.html">清除缓存</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="cache-entry">
+        <p class="eyebrow">Shared Entry</p>
+        <h1>清除旧缓存后进入物流信息库</h1>
+        <p class="cache-entry-note">同事首次打开或页面异常时，点击一次即可清除本项目在当前浏览器里的旧文件库、旧筛选和页面缓存，然后自动进入物流大表。</p>
+        <div class="cache-entry-actions">
+          <button class="button cache-primary-button" type="button" data-clear-cache-button>清除缓存并进入</button>
+          <a class="button ghost" href="logistics.html">直接进入</a>
+        </div>
+        <div class="cache-status" data-clear-cache-status>等待操作</div>
+      </section>
+    </main>
+  </body>
+</html>
