@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>物流大表 - 物流信息库</title>
-    <link rel="stylesheet" href="assets/styles.css?v=0.4.0">
+    <link rel="stylesheet" href="assets/styles.css?v=0.4.1">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script defer src="assets/app.js?v=0.4.0"></script>
+    <script defer src="assets/app.js?v=0.4.1"></script>
   </head>
   <body data-page="logistics">
     <aside class="sidebar">
@@ -36,7 +36,7 @@
         <div class="multi-filter" data-filter="productLine" data-label="全部产品线"></div>
         <input class="search-input" type="search" data-keyword placeholder="订单号 / 单号 / 店铺 / 备注">
         <button class="button ghost" type="button" data-clear-filters>重置筛选</button>
-        <button class="button" type="button" data-export>导出明细</button>
+        <button class="button" type="button" data-export>导出检索结果</button>
       </section>
 
       <section class="metric-grid">
@@ -60,22 +60,6 @@
         <div class="table-wrap">
           <table class="logistics-directory-table" data-directory-table></table>
         </div>
-      </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <h2>物流费用汇总</h2>
-          <span>分类取 sheet 名，并按部门/店铺维度信息补齐编码。</span>
-        </div>
-        <div class="table-wrap"><table data-summary-table></table></div>
-      </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <h2>明细记录</h2>
-          <span>展示当前筛选后的前 300 条记录。</span>
-        </div>
-        <div class="table-wrap"><table data-detail-table></table></div>
       </section>
     </main>
   </body>

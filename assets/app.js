@@ -97,9 +97,25 @@ async function getStoreRecord(storeName, key) {
 
 async function getAppliedRecord(slotId, legacyId = null) {
   const record = await getStoreRecord(FACT_STORE_NAME, slotId);
-  if (record?.applied && record?.sheets?.length) return record;
+  const normalizedRecord = normalizeLibraryRecord(record);
+  if (normalizedRecord?.sheets?.length) return normalizedRecord;
   if (!legacyId) return null;
   return getStoreRecord(LEGACY_STORE_NAME, legacyId);
+}
+
+function normalizeLibraryRecord(record) {
+  if (!record) return null;
+  if (record.sheets?.length) return record;
+  if (record.pendingSheets?.length) {
+    return {
+      ...record,
+      name: record.pendingName || record.name,
+      size: record.pendingSize || record.size,
+      savedAt: record.pendingSavedAt || record.savedAt,
+      sheets: record.pendingSheets
+    };
+  }
+  return record;
 }
 
 async function clearFiles() {
@@ -471,8 +487,6 @@ function rerenderDashboard() {
   renderFilters();
   renderKpis();
   renderDirectoryTable();
-  renderSummaryTable();
-  renderDetailTable();
 }
 
 function exportRows() {
