@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>物流信息库</title>
+    <link rel="stylesheet" href="assets/styles.css?v=0.1.0">
+    <script defer src="assets/app.js?v=0.1.0"></script>
+  </head>
+  <body data-page="home">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">物</span>
+        <div>
+          <strong>物流信息库</strong>
+          <small>Logistics Finance</small>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="active" href="index.html">工作台</a>
+        <a href="logistics.html">物流大表</a>
+        <a href="fact-library.html">物流事实表库</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Workspace</p>
+          <h1>物流信息库工作台</h1>
+        </div>
+        <button class="button ghost" type="button" data-clear-local>清空本地缓存</button>
+      </header>
+
+      <section class="metric-grid">
+        <article class="metric">
+          <span>已登记文件</span>
+          <strong data-total-files>0</strong>
+        </article>
+        <article class="metric">
+          <span>物流事实表</span>
+          <strong data-source-status>未上传</strong>
+        </article>
+        <article class="metric">
+          <span>可分析记录</span>
+          <strong data-total-records>0</strong>
+        </article>
+        <article class="metric">
+          <span>业务页面</span>
+          <strong>1</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>项目入口</h2>
+          <span>上传物流原表后进入物流大表查看汇总和明细。</span>
+        </div>
+        <div class="entry-grid">
+          <a class="entry" href="logistics.html">
+            <strong>物流大表</strong>
+            <span>按月份、物流公司、分类、主体、部门、店铺、产品线筛选运费数据。</span>
+          </a>
+          <a class="entry" href="fact-library.html">
+            <strong>物流事实表库</strong>
+            <span>登记和替换物流原表，浏览四张业务 sheet 的上传状态。</span>
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

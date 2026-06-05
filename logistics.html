@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>物流大表 - 物流信息库</title>
+    <link rel="stylesheet" href="assets/styles.css?v=0.1.0">
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="assets/app.js?v=0.1.0"></script>
+  </head>
+  <body data-page="logistics">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">物</span><div><strong>物流信息库</strong><small>Logistics Finance</small></div></div>
+      <nav class="nav">
+        <a href="index.html">工作台</a>
+        <a class="active" href="logistics.html">物流大表</a>
+        <a href="fact-library.html">物流事实表库</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Logistics Summary</p>
+          <h1>物流大表</h1>
+        </div>
+        <label class="file-picker">
+          <input type="file" accept=".xlsx,.xls,.csv" data-upload-source>
+          上传物流原表
+        </label>
+      </header>
+
+      <section class="toolbar filter-toolbar" data-filter-toolbar>
+        <div class="multi-filter" data-filter="sourceSheet" data-label="全部业务表"></div>
+        <div class="multi-filter" data-filter="month" data-label="全部月份"></div>
+        <div class="multi-filter" data-filter="logistics" data-label="全部物流公司"></div>
+        <div class="multi-filter" data-filter="category" data-label="全部分类"></div>
+        <div class="multi-filter" data-filter="subject" data-label="全部主体"></div>
+        <div class="multi-filter" data-filter="department" data-label="全部部门"></div>
+        <div class="multi-filter" data-filter="shop" data-label="全部店铺"></div>
+        <div class="multi-filter" data-filter="productLine" data-label="全部产品线"></div>
+        <input class="search-input" type="search" data-keyword placeholder="订单号 / 单号 / 店铺 / 备注">
+        <button class="button ghost" type="button" data-clear-filters>重置筛选</button>
+        <button class="button" type="button" data-export>导出明细</button>
+      </section>
+
+      <section class="metric-grid">
+        <article class="metric"><span>筛选记录</span><strong data-kpi="records">0</strong></article>
+        <article class="metric"><span>含税运费</span><strong data-kpi="taxAmount">0</strong></article>
+        <article class="metric"><span>不含税运费</span><strong data-kpi="netAmount">0</strong></article>
+        <article class="metric"><span>物流公司数</span><strong data-kpi="logisticsCount">0</strong></article>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>物流费用汇总</h2>
+          <span>按主体、部门、店铺、产品线、物流公司、分类聚合。</span>
+        </div>
+        <div class="table-wrap"><table data-summary-table></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>明细记录</h2>
+          <span>展示当前筛选后的前 300 条记录。</span>
+        </div>
+        <div class="table-wrap"><table data-detail-table></table></div>
+      </section>
+    </main>
+  </body>
+</html>
