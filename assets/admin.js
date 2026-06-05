@@ -11,6 +11,20 @@ const librarySlots = [
     library: "事实表",
     label: "物流原表",
     description: "包含医疗-发货、医疗-退货、医疗-单独发货、医疗-专线"
+  },
+  {
+    store: FACT_STORE,
+    id: "fact-2",
+    library: "事实表",
+    label: "物流附加表 1",
+    description: "用于补充上传其他物流相关 Excel 文件"
+  },
+  {
+    store: FACT_STORE,
+    id: "fact-3",
+    library: "事实表",
+    label: "物流附加表 2",
+    description: "用于补充上传其他物流相关 Excel 文件"
   }
 ];
 
