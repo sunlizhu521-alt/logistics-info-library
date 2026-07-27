@@ -16,6 +16,7 @@ const FIELD_ALIASES = {
   department: ["财务回传部门1"],
   shop: ["财务回传店铺1"],
   productLine: ["产品线", "产品线_1"],
+  productLineCustomerCode: ["产品线客户编码", "产品线客户编码_1"],
   orderNo: ["有效订单号", "订单号", "订单号/审批单号（财务需求必填）", "OA审批单号", "查询编码"],
   trackingNo: ["有效物流单号", "物流单号", "单号", "返货单号", "出入库单号"],
   remark: ["备注", "备注_2", "特殊原因", "其他费用产生原因"],
@@ -348,6 +349,7 @@ function normalizeSource(record, maps) {
           shop,
           shopCode: maps.shop.get(shop) || "",
           productLine: firstValue(row, FIELD_ALIASES.productLine),
+          productLineCustomerCode: firstValue(row, FIELD_ALIASES.productLineCustomerCode),
           orderNo: firstValue(row, FIELD_ALIASES.orderNo),
           trackingNo: firstValue(row, FIELD_ALIASES.trackingNo),
           remark: firstValue(row, FIELD_ALIASES.remark),
@@ -462,7 +464,8 @@ function groupSummary(rows) {
       row.departmentCode,
       row.shop,
       row.shopCode,
-      row.productLine
+      row.productLine,
+      row.productLineCustomerCode
     ].map((value) => value || "未填");
     const key = parts.join("\u0001");
     if (!map.has(key)) {
@@ -475,6 +478,7 @@ function groupSummary(rows) {
         shop: parts[5],
         shopCode: parts[6],
         productLine: parts[7],
+        productLineCustomerCode: parts[8],
         records: 0,
         taxAmount: 0,
         netAmount: 0
@@ -518,6 +522,7 @@ function renderSummaryTable() {
     { key: "shop", label: "财务回传店铺" },
     { key: "shopCode", label: "店铺客户编码" },
     { key: "productLine", label: "产品线" },
+    { key: "productLineCustomerCode", label: "产品线客户编码" },
     { key: "taxAmount", label: "运费合计(含税)", number: true, format: formatNumber },
     { key: "netAmount", label: "运费合计不含税", number: true, format: formatNumber }
   ], rows, "暂无可汇总数据");
@@ -535,6 +540,7 @@ function renderDirectoryTable() {
     { key: "shop", label: "财务回传店铺" },
     { key: "shopCode", label: "店铺客户编码" },
     { key: "productLine", label: "产品线" },
+    { key: "productLineCustomerCode", label: "产品线客户编码" },
     { key: "taxAmount", label: "运费合计(含税)", number: true, format: formatNumber },
     { key: "netAmount", label: "运费合计不含税", number: true, format: formatNumber }
   ], visibleRows, sourceStatusText);
@@ -571,6 +577,7 @@ function renderDetailTable() {
     { key: "shop", label: "财务回传店铺" },
     { key: "shopCode", label: "店铺客户编码" },
     { key: "productLine", label: "产品线" },
+    { key: "productLineCustomerCode", label: "产品线客户编码" },
     { key: "orderNo", label: "订单号/审批单号" },
     { key: "trackingNo", label: "物流单号" },
     { key: "taxAmount", label: "含税运费", number: true, format: formatNumber },
@@ -605,6 +612,7 @@ function exportRows() {
     财务回传店铺: row.shop,
     店铺客户编码: row.shopCode,
     产品线: row.productLine,
+    产品线客户编码: row.productLineCustomerCode,
     "运费合计(含税)": row.taxAmount,
     运费合计不含税: row.netAmount
   }));
